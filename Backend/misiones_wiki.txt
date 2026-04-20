@@ -1,0 +1,125 @@
+# Tarkov Wiki — Misiones y Quests (Archivo RAG de muestra)
+# Expande este archivo con más contenido para mejorar las respuestas del Sherpa.
+
+===========================================================
+PRAPOR - MISIONES
+===========================================================
+
+Misión: Debut
+- Trader: Prapor (Nivel 1)
+- Objetivo: Matar a 5 Scavs en cualquier mapa.
+- Recompensa: Experiencia, dinero y acceso a más misiones de Prapor.
+
+Misión: Shootout Picnic
+- Trader: Prapor (Nivel 1)
+- Objetivo: Matar a 10 Scavs en Woods.
+- Recompensa: Armas y acceso a munición de mayor nivel.
+
+Misión: The Punisher - Parte 1
+- Trader: Prapor
+- Objetivo: Matar a 25 Scavs en Customs usando un AK de cualquier calibre.
+- Recompensa: Reputación con Prapor y desbloqueo de The Punisher Parte 2.
+
+Misión: The Punisher - Parte 6
+- Trader: Prapor
+- Objetivo: Entregar un casco de clase 4 y un chaleco de clase 4 o superior.
+- Recompensa: Acceso a la tarjeta Blue Keycard y desbloqueo de armería especial.
+
+===========================================================
+THERAPIST - MISIONES
+===========================================================
+
+Misión: Sanatorium Raid
+- Trader: Therapist
+- Objetivo: Encontrar y entregar un LEDX Skin Transilluminator e un IFAKs.
+- Recompensa: Dinero, reputación máxima con Therapist y desbloqueo de ítems médicos raros.
+- Nota: El LEDX se encuentra en Shoreline (Health Resort, habitaciones del ala este).
+
+Misión: Supply Plans
+- Trader: Therapist
+- Objetivo: Encontrar documentos en Customs y extraer con vida.
+- Recompensa: Reputación y acceso a artículos médicos de nivel 3.
+
+===========================================================
+MECHANIC - MISIONES
+===========================================================
+
+Misión: Gunsmith - Parte 1
+- Trader: Mechanic
+- Objetivo: Modificar un MP-133 con silenciador y entregarlo.
+- Recompensa: Experiencia y desbloqueo de mejoras de armas.
+
+Misión: Signal - Parte 1
+- Trader: Mechanic
+- Objetivo: Encontrar y activar tres balizas de señal en tres mapas diferentes.
+- Recompensa: Acceso a la misión Signal Parte 2 y dinero.
+- Nota: Los mapas son Customs, Woods y Shoreline.
+
+===========================================================
+SKIER - MISIONES
+===========================================================
+
+Misión: Bad Rep Evidence
+- Trader: Skier (Nivel 1)
+- Objetivo: Encontrar y entregar la memoria USB de la policía en Customs.
+- Recompensa: Reputación con Skier y acceso a equipamiento de nivel medio.
+
+Misión: Wet Job - Parte 1
+- Trader: Skier
+- Objetivo: Matar a 7 PMCs en Shoreline.
+- Recompensa: Dinero y desbloqueo de la siguiente parte de la misión.
+
+===========================================================
+RAGMAN - MISIONES
+===========================================================
+
+Misión: Clothes Make the Man
+- Trader: Ragman
+- Objetivo: Entregar ropa y armaduras específicas.
+- Recompensa: Desbloqueo de nuevos skins y armaduras de nivel superior.
+
+===========================================================
+OBJETOS CLAVE Y DÓNDE ENCONTRARLOS
+===========================================================
+
+LEDX Skin Transilluminator:
+- Mapa: Shoreline (Health Resort, 2ª planta ala este, habitaciones 206, 210, 218, 221).
+- Mapa: Reserve (bunker, almacenes médicos).
+- Spawn Rate: Muy bajo (~2-5%).
+
+GPU (Graphics Card):
+- Mapa: Interchange (ULTRA Mall, tiendas de electrónica, almacenes).
+- Mapa: Reserve (búnker, estanterías de electrónica).
+- Spawn Rate: Bajo (~3-7%).
+
+Red Keycard:
+- Obtención: Loot de Scav Raiders de alta elite en Reserve o Labs.
+- Uso: Abre la sala roja en The Lab.
+
+Casco ULACH:
+- Trader: Ragman (Nivel 4).
+- Spawn: Raids en Interchange, Reserve, Shoreline.
+
+===========================================================
+MAPAS - INFORMACIÓN BÁSICA
+===========================================================
+
+Customs (Таможня):
+- Dificultad: Media.
+- Puntos clave: Dorms (2 y 3 pisos), el gas station, el puente y el almacén USEC.
+- Spawn de objetos: Electrónica, armas, llaves.
+
+Shoreline:
+- Dificultad: Media-Alta.
+- Puntos clave: Health Resort (alto valor, alta concentración de PMCs y Scavs).
+- Spawn de objetos: Médicos (LEDX, morphina, etc.), llaves.
+
+Reserve:
+- Dificultad: Alta.
+- Puntos clave: Bunkers (d2 extracción), helipuerto, almacenes.
+- Spawn de objetos: Electrónica, armas militares, munición de alto nivel.
+
+The Lab (TerraGroup Labs):
+- Dificultad: Extrema. Solo PMCs, sin Scavs normales.
+- Puntos clave: Sala Roja (Red Keycard), Sala Verde, Manager Office.
+- Spawn de objetos: Los mejores del juego: keycards, Bitcoin, GPU, armas raras.
