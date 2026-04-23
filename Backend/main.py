@@ -1,85 +1,72 @@
-"""
-main.py — Servidor FastAPI para Tarkov Sherpa.
-Expone el endpoint POST /ask que actúa como puente entre el frontend
-Streamlit y el agente LangChain definido en agent.py.
+from langchain_ollama import ChatOllama
+from langchain.messages import AIMessage, SystemMessage, HumanMessage
+from langchain.agents import create_agent
+from langchain.agents.middleware import HumanInTheLoopMiddleware
+from langgraph.types import Command
+from langchain.tools import tool, ToolRuntime
+from dataclasses import dataclass
+from typing import List
+from langgraph.checkpoint.memory import InMemorySaver
 
-Cómo arrancar el servidor:
-    uvicorn main:app --reload --port 8000
-"""
+# Para el RAG
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_ollama import OllamaEmbeddings
+from langchain_core.vectorstores import VectorStoreRetriever
+from langchain_chroma import Chroma
 
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from agent import run_agent  # Importa el agente desde agent.py
+# Configuracion de API
+from fastapi import FastAPI
+from pydantic import BaseModel
 
-# ---------------------------------------------------------------------------
-# Inicialización de FastAPI
-# ---------------------------------------------------------------------------
-app = FastAPI(
-    title="Tarkov Sherpa API",
-    description="Backend del agente IA para Escape from Tarkov.",
-    version="1.0.0",
+
+app = FastAPI()
+
+# --- CONFIGURACIÓN ---
+modelo = ChatOllama(
+    model="gemma4:26b", 
+    base_url="http://192.168.117.48:11434/"
 )
 
-# ---------------------------------------------------------------------------
-# CORS — Permite que el frontend Streamlit (localhost:8501) acceda a la API
-# En producción, reemplaza "*" con la URL exacta del frontend.
-# ---------------------------------------------------------------------------
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+# Herramientas (Aquí conectas tu MCP de Tarkov)
+herramientas = [] 
+
+# Memoria persistente
+checkpointer = InMemorySaver()
+
+# Agente directo (sin interrupciones)
+agente = create_agent(
+    modelo,
+    tools=herramientas,
+    system_prompt="Eres un Sherpa de Tarkov veterano. Responde de forma técnica y directa.",
+    checkpointer=checkpointer
 )
 
-# ---------------------------------------------------------------------------
-# Modelos Pydantic para validación de entrada/salida
-# ---------------------------------------------------------------------------
+class ChatRequest(BaseModel):
+    message: str
+    thread_id: str
 
-class AskRequest(BaseModel):
-    """Cuerpo de la petición al endpoint /ask."""
-    message: str = Field(
-        ...,
-        min_length=1,
-        max_length=2000,
-        description="Pregunta o solicitud del jugador al Sherpa.",
-        examples=["¿Cuánto vale una LEDX?"],
-    )
+@app.post("/chat")
+async def chat(req: ChatRequest):
+    # El thread_id permite que el bot recuerde lo anterior
+    config = {"configurable": {"thread_id": req.thread_id}}
+    
+    input_data = {"messages": [HumanMessage(content=req.message)]}
+    
+    final_response = ""
+    reasoning = ""
 
+    # Ejecución fluida
+    for paso in agente.stream(input_data, config=config, stream_mode="values"):
+        if "messages" in paso:
+            ultimo_mensaje = paso["messages"][-1]
+            final_response = ultimo_mensaje.content
+            
+            # Extraer razonamiento si el modelo lo proporciona
+            if hasattr(ultimo_mensaje, "additional_kwargs"):
+                reasoning = ultimo_mensaje.additional_kwargs.get("reasoning_content", "")
 
-class AskResponse(BaseModel):
-    """Cuerpo de la respuesta del endpoint /ask."""
-    answer: str = Field(..., description="Respuesta generada por el agente.")
-    status: str = Field(default="ok", description="Estado de la operación.")
-
-
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
-
-@app.get("/", tags=["Health"])
-async def root():
-    """Endpoint de comprobación de salud (health check)."""
-    return {"status": "El Sherpa está operativo. 🪖"}
-
-
-@app.post("/ask", response_model=AskResponse, tags=["Agent"])
-async def ask_sherpa(request: AskRequest):
-    """
-    Envía una pregunta al agente Tarkov Sherpa y devuelve su respuesta.
-
-    - **message**: Pregunta del usuario (máx. 2000 caracteres).
-    """
-    try:
-        answer = run_agent(request.message)
-        return AskResponse(answer=answer, status="ok")
-    except ValueError as ve:
-        # Error de validación o de lógica de negocio
-        raise HTTPException(status_code=422, detail=str(ve))
-    except Exception as e:
-        # Error inesperado — no exponer detalles internos al cliente
-        raise HTTPException(
-            status_code=500,
-            detail=f"El Sherpa está caído temporalmente: {str(e)}",
-        )
+    return {
+        "response": final_response,
+        "reasoning": reasoning
+    }
