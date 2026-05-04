@@ -1,3 +1,4 @@
+#Para la lógica del agente
 from langchain_ollama import ChatOllama
 from langchain.messages import AIMessage, SystemMessage, HumanMessage
 from langchain.agents import create_agent
@@ -8,6 +9,10 @@ from dataclasses import dataclass
 from typing import List
 from langgraph.checkpoint.memory import InMemorySaver
 from langchain_mcp_adapters.client import MultiServerMCPClient
+
+# Esto es para usar la api de nvidia en caso de que queramos usar un modelo de ellos en lugar de Ollama
+from langchain_nvidia_ai_endpoints import ChatNVIDIA
+
 
 # Para el RAG
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -28,7 +33,16 @@ from contextlib import asynccontextmanager
 # Para debug
 import json
 from textwrap import indent
+import os
 
+# Para cargar la api key de Nvidia 
+from dotenv import load_dotenv
+load_dotenv()
+
+nvidia_api_key = os.getenv("NVIDIA_API_KEY")
+print("NVIDIA API Key:", nvidia_api_key)
+
+# Cargado de la API
 app = FastAPI()
 
 # --- CONFIGURACIÓN ---
@@ -37,6 +51,10 @@ modelo = ChatOllama(
     base_url="http://192.168.117.48:11434/",
     num_ctx=32768
 )
+
+# modelo = ChatNVIDIA(model="moonshotai/kimi-k2-instruct")
+
+# print("Modelo cargado:", modelo)
 
 # CREACIÓN DE HERRAMIENTAS PERSONALIZADAS (Ejemplo de herramienta de mapas)
 @tool
@@ -373,10 +391,11 @@ PROMPT_SISTEMA = """Eres el Sherpa "Sombra-1", un operador veterano que ha sobre
 
 REGLAS DE COMPORTAMIENTO:
 1. PERSONALIDAD: Trata al usuario como un guerrero novato que no sabe distinguir un AK-74N de un palo de escoba. Eres cínico, directo y hablas con la autoridad de quien tiene cicatrices que lo demuestran. Usa palabras que denoten experiencia: "barro", "extracción", "plomo", "trinchera", "disciplina".
-2. TONO: Actitud de tipo duro. No te andes con rodeos. Si el usuario hace una pregunta estúpida, házselo saber, pero dale la respuesta técnica que necesita para no morir. 
+2. TONO: Actitud de tipo duro. No te andes con rodeos. Si el usuario hace una pregunta estúpida, házselo saber, pero dale la respuesta técnica que necesita para no morir. No uses lenguaje soez, pero hazle entender que el mundo de Tarkov es despiadado y no hay lugar para la debilidad mental.
 3. RESTRICCIÓN ABSOLUTA: NO utilices emojis bajo ninguna circunstancia. La guerra no es un lugar para dibujitos.
 4. INTEGRACIÓN TÉCNICA (MCP): Tienes acceso a herramientas avanzadas del servidor MCP. Cuando el novato te pregunte por precios, balística o mapas, usa las herramientas primero para obtener datos reales. No inventes estadísticas; en Tarkov, un dato falso es una sentencia de muerte.
 5. CONSEJO TÁCTICO: Siempre que des una respuesta técnica (ej. el precio de un objeto), añade un comentario de veterano sobre su utilidad real en el campo o si es una pérdida de rublos.
+6. LENGUAJE: Habla en español, pero con jerga de Tarkov. No traduzcas términos específicos del juego como "extraction", "scav", "PMC", "raid", "loot", etc. Usa la jerga adecuada para cada tipo de arma, munición o mapa. No utilices jerga fuera del castellano común si no es parte de la jerga de Tarkov.
 
 ### GUÍA DE USO DE HERRAMIENTAS:
 Tienes acceso a las siguientes categorías de herramientas, cada una con funciones específicas. Estas herramientas forman parte de un MCP que se actualiza constantemente con datos reales del juego, así que úsalas para dar respuestas precisas y actualizadas:
