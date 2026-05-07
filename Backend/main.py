@@ -52,11 +52,13 @@ modelo = ChatOllama(
     num_ctx=32768
 )
 
+
 # modelo = ChatNVIDIA(model="moonshotai/kimi-k2-instruct")
 
-# print("Modelo cargado:", modelo)
+print(modelo)  # Verifica que el modelo se ha cargado correctamente
 
-from tools import get_ammo, get_weapons_by_caliber, get_weapons_by_name, get_weapons_by_category
+# OBTENCIÓN DE HERRAMIENTAS CUSTOM PARA TARKOV (FUERA DEL MCP)
+from tools import get_ammo, get_weapons_by_caliber, get_weapons_by_name, get_weapons_by_category, get_multiAmmo, search_tasks, get_multi_weapons
 # OBTENCIÓN DE HERRAMIENTAS DESDE EL MCP
 async def get_tarkov_mcp():
 
@@ -125,8 +127,10 @@ Tienes acceso a las siguientes categorías de herramientas, cada una con funcion
 - **get_weapons_by_caliber**: Esta herramienta te permite obtener una lista de armas que usan un calibre específico. Si el usuario menciona qué armas usan un calibre, úsala para darle opciones de armas que puede usar con esa munición, junto con sus características principales.
 - **get_weapons_by_name**: Esta herramienta te permite obtener una lista de armas que coincidan con un nombre o parte de un nombre. Si el usuario menciona el nombre de un arma o parte de él, úsala para darle información detallada sobre esa arma, incluyendo su precio, estadísticas y características.
 - **get_weapons_by_category**: Esta herramienta te permite obtener una lista de armas que coincidan con una categoría específica. Si el usuario menciona una categoría de arma (ej. rifles de asalto, ametralladoras ligeras, escopetas, subfusiles, rifles de francotirador, rifles de tirador, pistolas, revólveres, carbinas de asalto, lanzagranadas), úsala para darle información detallada sobre las armas que pertenecen a esa categoría, incluyendo su precio, estadísticas y características.
+- **get_multiAmmo**: Esta herramienta te permite obtener una lista de balas que coincidan con uno o varios calibres. Si el usuario menciona uno o varios calibres, úsala para darle información detallada sobre las balas disponibles para esos calibres.
+- **search_tasks**: Esta herramienta te permite buscar tareas/misiones de Tarkov utilizando Generación Aumentada por Recuperación (RAG). Proporciona una consulta en lenguaje natural para encontrar tareas relevantes en la base de datos de Tarkov. Si el usuario te pregunta por misiones específicas, objetivos de misiones o recompensas, úsala para darle información precisa y actualizada sobre las tareas disponibles en el juego.
+- **get_multi_weapons**: Esta herramienta te permite obtener una lista de armas que coincidan con uno o varios nombres o partes de nombres. Si el usuario menciona uno o varios nombres de armas o partes de ellos, úsala para darle información detallada sobre las armas que coinciden con esos criterios, incluyendo su precio, estadísticas y características.
 ESTILO DE RESPUESTA (No sigas estas indicaciones al pie de la letra, adáptalas a tu personalidad de Sherpa):
-- Si el usuario te saluda: "¿Sigues vivo, novato? Aprovecha el tiempo y dime qué te hace falta antes de que el cronómetro llegue a cero."
 - Si el usuario pregunta por un objeto (MCP): "Esa chatarra que buscas... deja que consulte el mercado. (Usa la tool). Aquí tienes: cuesta {precio} rublos. No te gastes todo el jornal en eso si no tienes una armadura decente."
 - Si el usuario pide ayuda con una misión: "Esa zona es un nido de ratas. Escucha bien porque no lo repetiré dos veces..."
 
@@ -145,7 +149,7 @@ agente = None
 async def lifespan(app: FastAPI):
     global herramientas, agente
     mcp_tools = await get_tarkov_mcp()
-    herramientas = mcp_tools + [get_ammo, get_weapons_by_caliber, get_weapons_by_name, get_weapons_by_category]  # Combina herramientas del MCP con la personalizada
+    herramientas = mcp_tools + [get_ammo, get_weapons_by_caliber, get_weapons_by_name, get_weapons_by_category, get_multiAmmo, search_tasks, get_multi_weapons]  # Combina herramientas del MCP con la personalizada
     for tool in herramientas:
        pretty_tool(tool)
     checkpointer = InMemorySaver()

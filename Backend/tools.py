@@ -1,7 +1,105 @@
 import requests
 from langchain.tools import tool
+from langchain_chroma import Chroma
+from langchain_ollama import OllamaEmbeddings
+import os
+
+# Setup for RAG tasks
+CHROMA_DIR = "../Rag/chroma_db"
+COLLECTION_NAME = "tarkov_tasks"
+
+def get_embeddings():
+    return OllamaEmbeddings(
+        model="mxbai-embed-large",
+        base_url="http://localhost:11434",
+    )
+
+def get_vectorstore():
+    embeddings = get_embeddings()
+    return Chroma(
+        persist_directory=CHROMA_DIR,
+        embedding_function=embeddings,
+        collection_name=COLLECTION_NAME
+    )
+
+vectorstore = get_vectorstore()
 
 # CREACIÓN DE HERRAMIENTAS PERSONALIZADAS (Ejemplo de herramienta de mapas)
+@tool
+def get_multiAmmo(calibers: list = None):
+    """
+    Consulta la API de Tarkov para obtener todas las balas de uno o varios calibres.
+    Argumentos:
+        calibers (list): Una lista de strings con los calibres, ej: ["9x19", "86x70"]
+    Consulta la API de Tarkov para obtener todas las balas de un calibre. Si el usuario especifica un calibre, filtra por ese tipo. 5.56x45mm -> 556X45. 
+    Las entradas está estandarizadas de la siguiente forma: 9x19, 556x45, 762x39, etc. Extrapola según lo que pide el usuario, pero si no puedes identificar el calibre, devuelve la lista completa.
+    Las entradas SIEMPRE siguen el formato: [calibre]x[longitud], pero el usuario puede escribirlo de cualquier forma, así que haz tu mejor esfuerzo para identificarlo.
+    Las entradas NUNCA llevan punto decimal ni espacios así que extrapola también en ese sentido: 0.45 -> 45, 9 mm -> 9x19, etc.
+    El calibre 12 de escopeta es un caso especial, ya que no sigue el formato estándar. Si el usuario menciona "calibre 12", "12 gauge" o simplemente "12" se debe buscar como 12g.
+    Lo mismo se aplica para el calibre de escopeta 20, que se debe buscar como 20g.
+    El calibre .45 acp se debe buscar como 45acp o 1143x23, ya que es un caso especial que no sigue el formato estándar.
+    Las granadas de 40mm se deben buscar como 40x46, ya que también son un caso especial.
+    El calibre .338 lapua se debe buscar como 86x70.
+    El calibre 50 de Desert Eagle se debe buscar como 127x33.
+    El calibre .357 de Revolver se debe buscar como 9x33, ya que es un caso especial que no sigue el formato estándar.
+    El calibre .366 tkm se debe buscar como 366, ya que es un caso especial que no sigue el formato estándar.
+    El calibre .300 blackout se debe buscar como 762x35, ya que es un caso especial que no sigue el formato estándar.
+    El calibre de .308me de fusil de palanca se debe buscar como 784x49, ya que es un caso especial que no sigue el formato estándar.
+    El calibre .50BMG se debe buscar como 127x99, ya que es un caso especial que no sigue el formato estándar.
+    Si el usuario menciona calibre 762 sin especificar, sal de la herramienta y pregúntale si se refiere a 762x39, 762x51 o 762x54, ya que son los calibres de 7.62 más comunes en el juego.
+    """
+    url = "https://api.tarkov.dev/graphql"
+
+    new_query = """
+    {
+        ammo {
+            item {
+                description
+                name
+            }
+            ammoType
+            accuracyModifier
+            armorDamage
+            caliber
+            damage
+            fragmentationChance
+            heavyBleedModifier
+            initialSpeed
+            lightBleedModifier
+            penetrationPower
+            ricochetChance
+            recoilModifier
+            tracer
+            tracerColor
+        }
+    }
+    """
+
+    headers = {"Content-Type": "application/json"}
+    try:
+        response = requests.post(url, headers=headers, json={'query': new_query})
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Query failed: {e}")
+
+    data = response.json()["data"]["ammo"]
+
+    # 🔍 Si no se pasan calibres o la lista está vacía → devuelve todo
+    if not calibers:
+        return data
+
+    # Normalizamos todos los calibres de entrada a minúsculas para comparar
+    calibers_lower = [c.lower() for c in calibers]
+
+    # 🎯 Filtro: Si el calibre de la bala coincide con CUALQUIERA de la lista
+    resultado = [
+        ammo for ammo in data
+        if any(c_input in ammo.get("caliber", "").lower() for c_input in calibers_lower)
+    ]
+
+    # ❗ Si no hay coincidencias tras filtrar → devuelve todo (según tu lógica original)
+    return resultado if resultado else data
+
 @tool
 def get_ammo(caliber: str):
     """
@@ -205,6 +303,69 @@ def get_weapons_by_name(name: str):
     # ❗ Sin coincidencias → todo
     return resultado if resultado else data
 
+@tool
+def get_multi_weapons(names: list = None):
+    """
+    Consulta la API de Tarkov para obtener todas las armas que coincidan con varios nombres o partes de nombres. El filtro debe ser generoso, es decir, si el usuario escribe "ak", debería devolver armas como "AK-74N", "AKM", "AK-12", etc. 
+    El filtro se debe aplicar sobre los campos "name" y "shortName" de cada arma en la base de datos. Si el usuario no especifica ningún nombre, devuelve la lista completa de armas.
+    
+    Args:
+        names (list): Lista de strings con los nombres a buscar, ej: ["ak", "m4", "p90"]
+    """
+    url = "https://api.tarkov.dev/graphql"
+    
+    query = """
+    {
+      items(type: gun) {
+        basePrice
+        description
+        name
+        normalizedName
+        shortName
+        velocity
+        properties {
+          ... on ItemPropertiesWeapon {
+            caliber
+            effectiveDistance
+            ergonomics
+            fireModes
+            fireRate
+            recoilVertical
+            recoilHorizontal
+          }
+        }
+      }
+    }
+    """
+
+    headers = {"Content-Type": "application/json"}
+    try:
+        response = requests.post(url, headers=headers, json={'query': query})
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Query failed: {e}")
+
+    data = response.json()["data"]["items"]
+
+    # 🔍 Si no se pasan nombres o la lista está vacía → devuelve todo
+    if not names:
+        return data
+
+    # Normalizamos los términos de búsqueda a minúsculas
+    names_lower = [n.lower() for n in names]
+
+    # 🎯 Filtro generoso: comprueba si CUALQUIERA de los términos está en name o shortName
+    resultado = [
+        weapon for weapon in data
+        if any(
+            n_input in weapon.get("name", "").lower() or 
+            n_input in weapon.get("shortName", "").lower() 
+            for n_input in names_lower
+        )
+    ]
+
+    # ❗ Si no hay coincidencias tras filtrar → devuelve la lista completa
+    return resultado if resultado else data
 
 @tool
 def get_weapons_by_category(category: str):
@@ -227,7 +388,6 @@ def get_weapons_by_category(category: str):
     """
 
     url = "https://api.tarkov.dev/graphql"
-    print(category)
     query = """
     {
       items(type: gun) {
@@ -280,4 +440,67 @@ def get_weapons_by_category(category: str):
     print(resultado)
     # ❗ Sin coincidencias → todo
     return resultado if resultado else data
+
+
+@tool
+def get_armor_materials():
+    """
+    Consulta la API de Tarkov para obtener todos los materiales de armaduras disponibles en el juego. Esta herramienta es útil para que los jugadores puedan identificar qué materiales se utilizan en la fabricación de armaduras y así tomar decisiones informadas sobre qué armaduras comprar o fabricar según sus necesidades y presupuesto.
+     Si el usuario menciona un material específico, hablale de ese material en particular.
+    """
+    url = "https://api.tarkov.dev/graphql"
+    
+    query = """
+    query MyQuery {
+      armorMaterials {
+        name
+        explosionDestructibility
+        destructibility
+        maxRepairDegradation
+        maxRepairKitDegradation
+        minRepairDegradation
+        minRepairKitDegradation
+      }
+    }
+    """
+
+    headers = {"Content-Type": "application/json"}
+    
+    try:
+        response = requests.post(url, headers=headers, json={'query': query})
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        # Devolvemos directamente la lista de materiales dentro del JSON
+        return data["data"]["armorMaterials"]
+        
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Error al conectar con la API de Tarkov: {e}")
+    except KeyError:
+        raise Exception("La estructura de la respuesta de la API ha cambiado o es inesperada.")
+    pass
+
+@tool
+def search_tasks(query: str):
+  """
+  Busca tareas/misiones de Tarkov utilizando Generación Aumentada por Recuperación (RAG).
+  Proporciona una consulta en lenguaje natural para encontrar tareas relevantes en la base de datos de Tarkov.
+  Esta herramienta recupera tareas que coinciden con la consulta basándose en sus descripciones, objetivos y recompensas.
+
+  Args:
+  query (str): El nombre de la tarea que estás buscando o una descripción general.
+
+  Returns:
+  list: Una lista de descripciones de tareas que coinciden con la consulta.
+
+  Utiliza esta herramienta para ayudar a los jugadores a encontrar tareas específicas en Tarkov, proporcionando información detallada sobre cada tarea recuperada.
+  No des más información de la que necesita el usuario para identificar la tarea, pero asegúrate de incluir detalles relevantes como el nombre de la tarea, el trader que la ofrece, los objetivos principales y las recompensas, para que el usuario pueda reconocerla fácilmente.
+  Si no se encuentra ninguna tarea que coincida con la consulta, devuelve una lista vacía.
+  """
+  try:
+      results = vectorstore.similarity_search(query, k=5)
+      return [doc.page_content for doc in results]
+  except Exception as e:
+      return f"Error searching tasks: {str(e)}"
 
