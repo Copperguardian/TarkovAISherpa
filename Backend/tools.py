@@ -4,9 +4,18 @@ from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 import os
 
-# Setup for RAG tasks
+# Setup for RAG
 CHROMA_DIR = "../Rag/chroma_db"
-COLLECTION_NAME = "tarkov_tasks"
+COLLECTION_NAME_TASKS = "tarkov_tasks"
+
+# Todos los tipos de items disponibles (coincide con create_collections.py)
+ITEM_TYPES = [
+    "ammo", "ammoBox", "armor", "armorPlate", "backpack",
+    "barter", "container", "glasses", "grenade", "gun",
+    "headphones", "helmet", "injectors", "keys", "markedOnly",
+    "meds", "mods", "pistolGrip", "poster", "preset",
+    "rig", "specialSlot", "suppressor", "wearable"
+]
 
 def get_embeddings():
     return OllamaEmbeddings(
@@ -14,12 +23,12 @@ def get_embeddings():
         base_url="http://localhost:11434",
     )
 
-def get_vectorstore():
+def get_vectorstore(collection_name=COLLECTION_NAME_TASKS):
     embeddings = get_embeddings()
     return Chroma(
         persist_directory=CHROMA_DIR,
         embedding_function=embeddings,
-        collection_name=COLLECTION_NAME
+        collection_name=collection_name
     )
 
 vectorstore = get_vectorstore()
@@ -504,3 +513,59 @@ def search_tasks(query: str):
   except Exception as e:
       return f"Error searching tasks: {str(e)}"
 
+@tool
+def search_items(query: str, item_type: str = None):
+  """
+  Busca items/objetos de Tarkov utilizando Generación Aumentada por Recuperación (RAG).
+  Proporciona una consulta en lenguaje natural para encontrar items relevantes en la base de datos.
+  Esta herramienta recupera items que coinciden con la consulta basándose en su nombre, descripción, precios y propiedades.
+
+  Args:
+    query (str): Lo que el usuario está buscando. Puede ser el nombre del item, una descripción o una pregunta general.
+    item_type (str, optional): Tipo de item para filtrar la búsqueda. Si se conoce el tipo, especificarlo
+      acelera la búsqueda y mejora la precisión. Tipos válidos:
+      ammo, ammoBox, armor, armorPlate, backpack, barter, container, glasses, grenade, gun,
+      headphones, helmet, injectors, keys, markedOnly, meds, mods, pistolGrip, poster, preset,
+      rig, specialSlot, suppressor, wearable.
+      Si no se especifica, se busca en TODAS las colecciones.
+
+  Returns:
+    list: Una lista de descripciones de items que coinciden con la consulta.
+
+  Utiliza esta herramienta para ayudar a los jugadores a encontrar información sobre items específicos de Tarkov,
+  incluyendo precios de compra/venta, dónde conseguirlos, nivel necesario para el Flea Market y en qué misiones se usan.
+  Si el usuario pregunta por un objeto, armadura, mochila, medicamento, modificación de arma, casco, llaves,
+  o cualquier otro item del juego que NO sea un arma ni munición directamente, usa esta herramienta.
+  Para preguntas sobre armas usa get_weapons_by_name o get_weapons_by_caliber.
+  Para preguntas sobre munición usa get_ammo o get_multiAmmo.
+  Para preguntas sobre tareas/misiones usa search_tasks.
+  """
+  try:
+      # Si se especifica un tipo válido, buscar solo en esa colección
+      if item_type and item_type in ITEM_TYPES:
+          collection_name = f"tarkov_items_{item_type}"
+          item_vs = get_vectorstore(collection_name)
+          results = item_vs.similarity_search_with_relevance_scores(query, k=5)
+          return [doc.page_content for doc, score in results]
+
+      # Si no se especifica tipo, buscar en TODAS las colecciones
+      all_results = []
+      for t in ITEM_TYPES:
+          collection_name = f"tarkov_items_{t}"
+          try:
+              item_vs = get_vectorstore(collection_name)
+              # Verificar que la colección tenga documentos
+              if item_vs._collection.count() == 0:
+                  continue
+              results = item_vs.similarity_search_with_relevance_scores(query, k=3)
+              all_results.extend(results)
+          except Exception:
+              continue
+
+      # Ordenar por relevancia (score más alto = más relevante) y devolver top 5
+      all_results.sort(key=lambda x: x[1], reverse=True)
+      top_results = all_results[:5]
+      return [doc.page_content for doc, score in top_results]
+
+  except Exception as e:
+      return f"Error searching items: {str(e)}"
