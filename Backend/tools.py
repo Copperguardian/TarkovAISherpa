@@ -569,3 +569,98 @@ def search_items(query: str, item_type: str = None):
 
   except Exception as e:
       return f"Error searching items: {str(e)}"
+
+@tool
+def search_hideout(query: str):
+  """
+  Busca información sobre las estaciones del hideout de Tarkov utilizando Generación Aumentada por Recuperación (RAG).
+  Proporciona una consulta en lenguaje natural para encontrar información relevante sobre el hideout.
+
+  Args:
+    query (str): Lo que el usuario quiere saber sobre el hideout. Puede ser el nombre de una estación,
+      un craft específico, requisitos de construcción, o una pregunta general sobre el hideout.
+
+  Returns:
+    list: Una lista de descripciones de estaciones/niveles del hideout que coinciden con la consulta.
+
+  Utiliza esta herramienta cuando el usuario pregunte sobre:
+  - Estaciones del hideout (Workbench, Medstation, Lavatory, Water Collector, Generator, Nutrition Unit,
+    Intelligence Center, Scav Case, Bitcoin Farm, Shooting Range, Library, Gym, etc.)
+  - Requisitos para construir o mejorar una estación (items necesarios, nivel de trader, habilidades, otras estaciones)
+  - Crafts disponibles en una estación (qué se puede fabricar, qué materiales se necesitan, cuánto tarda)
+  - Bonuses que otorga una estación al mejorarla
+  - Tiempo de construcción de una estación
+  - Cualquier pregunta relacionada con el hideout, la base del jugador o fabricación de objetos
+
+  NO uses esta herramienta para buscar items sueltos (usa search_items), armas (usa get_weapons_*),
+  munición (usa get_ammo/get_multiAmmo) o misiones (usa search_tasks).
+  """
+  print("----------------------------------------------------------------------------------------")
+  print("Se ha ejecutado search_hideout")
+  print("Query: ", query)
+  try:
+      hideout_vs = get_vectorstore("tarkov_hideout")
+      results = hideout_vs.similarity_search(query, k=5)
+      return [doc.page_content for doc in results]
+  except Exception as e:
+      return f"Error searching hideout: {str(e)}"
+
+@tool
+def get_map_info(query: str):
+    """
+    Obtiene información sobre los mapas de Tarkov haciendo una llamada directa a la API de tarkov.dev.
+    Devuelve datos sobre enemigos, duración del raid, número de jugadores, llaves de acceso y descripción.
+    Si el usuario menciona un mapa específico (Customs, Woods, Interchange, Shoreline, Reserve, Labs,
+    Factory, Streets of Tarkov, Lighthouse, Ground Zero, etc.), filtra por ese nombre.
+    Si no se especifica mapa, devuelve todos los mapas disponibles.
+
+    Args:
+        query (str): El nombre del mapa o una descripción de lo que el usuario busca.
+
+    Returns:
+        list: Información completa de los mapas que coincidan con la consulta.
+    """
+    url = "https://api.tarkov.dev/graphql"
+
+    gql_query = """
+    {
+        maps {
+            enemies
+            name
+            raidDuration
+            players
+            accessKeys {
+                name
+            }
+            description
+        }
+    }
+    """
+
+    print("----------------------------------------------------------------------------------------")
+    print("Se ha ejecutado get_map_info")
+    print("Query: ", query)
+
+    headers = {"Content-Type": "application/json"}
+    try:
+        response = requests.post(url, headers=headers, json={'query': gql_query})
+        response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        return f"Error al conectar con la API de Tarkov: {e}"
+
+    data = response.json().get("data", {}).get("maps", [])
+
+    # Si no hay query o está vacío, devuelve todos los mapas
+    if not query:
+        return data
+
+    query_lower = query.lower()
+
+    # Filtro generoso por nombre del mapa
+    resultado = [
+        mapa for mapa in data
+        if query_lower in mapa.get("name", "").lower()
+    ]
+
+    # Si no hay coincidencias por nombre, devuelve todos
+    return resultado if resultado else data

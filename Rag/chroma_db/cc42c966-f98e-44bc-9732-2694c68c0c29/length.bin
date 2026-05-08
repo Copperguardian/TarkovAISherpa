@@ -1,0 +1,17 @@
+Hideout Station: Solar Power
+Level: 1
+Construction Time: 72h 0m
+Bonuses:
+  - Fuel consumption (FuelConsumption): -0.5
+Required Items:
+  - Euros x25000
+  - Military cable x10
+  - Phased array element x6
+  - Military power filter x10
+  - Working LCD x3
+  - Advanced current converter x1
+Station Requirements:
+  - Generator level 3
+  - Workbench level 3
+Trader Requirements:
+  - Peacekeeper level 4ected

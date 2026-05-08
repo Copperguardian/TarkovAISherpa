@@ -58,7 +58,7 @@ modelo = ChatOllama(
 print(modelo)  # Verifica que el modelo se ha cargado correctamente
 
 # OBTENCIÓN DE HERRAMIENTAS CUSTOM PARA TARKOV (FUERA DEL MCP)
-from tools import get_ammo, get_weapons_by_caliber, get_weapons_by_name, get_weapons_by_category, get_multiAmmo, search_tasks, get_multi_weapons, search_items
+from tools import get_ammo, get_map_info, get_weapons_by_caliber, get_weapons_by_name, get_weapons_by_category, get_multiAmmo, search_tasks, get_multi_weapons, search_items, search_hideout
 # OBTENCIÓN DE HERRAMIENTAS DESDE EL MCP
 async def get_tarkov_mcp():
 
@@ -131,6 +131,8 @@ Tienes acceso a las siguientes categorías de herramientas, cada una con funcion
 - **search_tasks**: Esta herramienta te permite buscar tareas/misiones de Tarkov utilizando Generación Aumentada por Recuperación (RAG). Proporciona una consulta en lenguaje natural para encontrar tareas relevantes en la base de datos de Tarkov. Si el usuario te pregunta por misiones específicas, objetivos de misiones o recompensas, úsala para darle información precisa y actualizada sobre las tareas disponibles en el juego.
 - **get_multi_weapons**: Esta herramienta te permite obtener una lista de armas que coincidan con uno o varios nombres o partes de nombres. Si el usuario menciona uno o varios nombres de armas o partes de ellos, úsala para darle información detallada sobre las armas que coinciden con esos criterios, incluyendo su precio, estadísticas y características.
 - **search_items**: Esta herramienta te permite buscar cualquier item/objeto de Tarkov (armaduras, mochilas, medicinas, llaves, cascos, gafas, contenedores, objetos de trueque, etc.) utilizando RAG. Si el usuario pregunta por un objeto que NO es un arma ni munición, usa esta herramienta. Puedes especificar opcionalmente el tipo de item (armor, meds, keys, barter, helmet, backpack, etc.) para obtener resultados más precisos y rápidos.
+- **search_hideout**: Esta herramienta te permite buscar información sobre las estaciones del hideout (Workbench, Medstation, Lavatory, Water Collector, Generator, Bitcoin Farm, etc.) utilizando RAG. Úsala cuando el usuario pregunte sobre requisitos de construcción, mejoras de estaciones, crafts disponibles, bonuses del hideout o cualquier cosa relacionada con la base del jugador. Da información sobre qué items se necesitan para construir/mejorar, qué traders hay que tener, qué se puede fabricar y cuánto tarda.
+- **get_map_info**: Esta herramienta te permite obtener información detallada sobre cualquier mapa de Tarkov. Úsala para dar consejos de navegación, puntos de extracción, zonas de alto riesgo, ubicaciones de loot y estrategias para sobrevivir en cada mapa. Si el usuario pregunta por un mapa específico, esta es tu herramienta de referencia para darle la información más precisa y actualizada.
 ESTILO DE RESPUESTA (No sigas estas indicaciones al pie de la letra, adáptalas a tu personalidad de Sherpa):
 - Si el usuario pregunta por un objeto (MCP): "Esa chatarra que buscas... deja que consulte el mercado. (Usa la tool). Aquí tienes: cuesta {precio} rublos. No te gastes todo el jornal en eso si no tienes una armadura decente."
 - Si el usuario pide ayuda con una misión: "Esa zona es un nido de ratas. Escucha bien porque no lo repetiré dos veces..."
@@ -150,7 +152,7 @@ agente = None
 async def lifespan(app: FastAPI):
     global herramientas, agente
     mcp_tools = await get_tarkov_mcp()
-    herramientas = mcp_tools + [get_ammo, get_weapons_by_caliber, get_weapons_by_name, get_weapons_by_category, get_multiAmmo, search_tasks, get_multi_weapons, search_items]  # Combina herramientas del MCP con las personalizadas
+    herramientas = mcp_tools + [get_ammo, get_weapons_by_caliber, get_weapons_by_name, get_weapons_by_category, get_multiAmmo, search_tasks, get_multi_weapons, search_items, search_hideout, get_map_info]  # Combina herramientas del MCP con las personalizadas
     for tool in herramientas:
        pretty_tool(tool)
     checkpointer = InMemorySaver()
