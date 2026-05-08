@@ -21,8 +21,15 @@ from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_chroma import Chroma
 
 # Configuracion de API
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
+from database import get_db, User, Conversation
+from jose import JWTError, jwt
+import auth
 
 # Para la API de tarkov
 import requests
@@ -58,7 +65,7 @@ modelo = ChatOllama(
 print(modelo)  # Verifica que el modelo se ha cargado correctamente
 
 # OBTENCIÓN DE HERRAMIENTAS CUSTOM PARA TARKOV (FUERA DEL MCP)
-from tools import get_ammo, get_map_info, get_weapons_by_caliber, get_weapons_by_name, get_weapons_by_category, get_multiAmmo, search_tasks, get_multi_weapons, search_items, search_hideout
+from tools import get_ammo, get_map_info, get_weapons_by_caliber, get_weapons_by_name, get_weapons_by_category, get_multiAmmo, search_tasks, get_multi_weapons, search_items, search_hideout, get_user_progress
 # OBTENCIÓN DE HERRAMIENTAS DESDE EL MCP
 async def get_tarkov_mcp():
 
@@ -133,6 +140,7 @@ Tienes acceso a las siguientes categorías de herramientas, cada una con funcion
 - **search_items**: Esta herramienta te permite buscar cualquier item/objeto de Tarkov (armaduras, mochilas, medicinas, llaves, cascos, gafas, contenedores, objetos de trueque, etc.) utilizando RAG. Si el usuario pregunta por un objeto que NO es un arma ni munición, usa esta herramienta. Puedes especificar opcionalmente el tipo de item (armor, meds, keys, barter, helmet, backpack, etc.) para obtener resultados más precisos y rápidos.
 - **search_hideout**: Esta herramienta te permite buscar información sobre las estaciones del hideout (Workbench, Medstation, Lavatory, Water Collector, Generator, Bitcoin Farm, etc.) utilizando RAG. Úsala cuando el usuario pregunte sobre requisitos de construcción, mejoras de estaciones, crafts disponibles, bonuses del hideout o cualquier cosa relacionada con la base del jugador. Da información sobre qué items se necesitan para construir/mejorar, qué traders hay que tener, qué se puede fabricar y cuánto tarda.
 - **get_map_info**: Esta herramienta te permite obtener información detallada sobre cualquier mapa de Tarkov. Úsala para dar consejos de navegación, puntos de extracción, zonas de alto riesgo, ubicaciones de loot y estrategias para sobrevivir en cada mapa. Si el usuario pregunta por un mapa específico, esta es tu herramienta de referencia para darle la información más precisa y actualizada.
+- **get_user_progress**: Esta herramienta te permite obtener el progreso real del usuario (nivel, misiones, hideout) desde TarkovTracker. Úsala al inicio o cuando el usuario pregunte "¿qué debería hacer ahora?" para dar consejos basados en su estado actual. Si ves un token en el contexto, tienes permiso para usarlo.
 ESTILO DE RESPUESTA (No sigas estas indicaciones al pie de la letra, adáptalas a tu personalidad de Sherpa):
 - Si el usuario pregunta por un objeto (MCP): "Esa chatarra que buscas... deja que consulte el mercado. (Usa la tool). Aquí tienes: cuesta {precio} rublos. No te gastes todo el jornal en eso si no tienes una armadura decente."
 - Si el usuario pide ayuda con una misión: "Esa zona es un nido de ratas. Escucha bien porque no lo repetiré dos veces..."
@@ -143,6 +151,25 @@ Tu objetivo es la supervivencia. El conocimiento es lo único que pesa menos que
 class ChatRequest(BaseModel):
     message: str
     thread_id: str
+    tarkov_token: Optional[str] = None
+    user_id: Optional[int] = None
+
+class UserRegister(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class ConversationSave(BaseModel):
+    title: str
+    messages: list
+    thread_id: str
 
 herramientas = None
 agente = None
@@ -152,7 +179,7 @@ agente = None
 async def lifespan(app: FastAPI):
     global herramientas, agente
     mcp_tools = await get_tarkov_mcp()
-    herramientas = mcp_tools + [get_ammo, get_weapons_by_caliber, get_weapons_by_name, get_weapons_by_category, get_multiAmmo, search_tasks, get_multi_weapons, search_items, search_hideout, get_map_info]  # Combina herramientas del MCP con las personalizadas
+    herramientas = mcp_tools + [get_ammo, get_weapons_by_caliber, get_weapons_by_name, get_weapons_by_category, get_multiAmmo, search_tasks, get_multi_weapons, search_items, search_hideout, get_map_info, get_user_progress]  # Combina herramientas del MCP con las personalizadas
     for tool in herramientas:
        pretty_tool(tool)
     checkpointer = InMemorySaver()
@@ -167,12 +194,106 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# CORS para el frontend React
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# --- AUTH DEPENDENCY ---
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        raise credentials_exception
+    return user
+
+# --- ENDPOINTS DE USUARIO ---
+
+@app.post("/register")
+def register(user_data: UserRegister, db: Session = Depends(get_db)):
+    if not auth.validate_email(user_data.email):
+        raise HTTPException(status_code=400, detail="Email inválido")
+    if not auth.validate_password(user_data.password):
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número")
+    
+    db_user = db.query(User).filter(User.email == user_data.email).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="El email ya está registrado")
+    
+    hashed_password = auth.get_password_hash(user_data.password)
+    new_user = User(email=user_data.email, hashed_password=hashed_password)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {"message": "Usuario registrado con éxito"}
+
+@app.post("/login")
+def login(user_data: UserLogin, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == user_data.email).first()
+    if not user or not auth.verify_password(user_data.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Email o contraseña incorrectos")
+    
+    access_token = auth.create_access_token(data={"sub": user.email})
+    return {"access_token": access_token, "token_type": "bearer", "user_id": user.id}
+
+# --- ENDPOINTS DE CONVERSACIONES ---
+
+@app.post("/conversations")
+def save_conversation(conv_data: ConversationSave, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    new_conv = Conversation(
+        user_id=current_user.id,
+        title=conv_data.title,
+        messages=json.dumps(conv_data.messages)
+    )
+    db.add(new_conv)
+    db.commit()
+    db.refresh(new_conv)
+    return {"id": new_conv.id, "message": "Conversación guardada"}
+
+@app.get("/conversations")
+def get_conversations(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    conversations = db.query(Conversation).filter(Conversation.user_id == current_user.id).all()
+    return [{
+        "id": c.id,
+        "title": c.title,
+        "created_at": c.created_at,
+        "messages": json.loads(c.messages)
+    } for c in conversations]
+
 @app.post("/chat")
 async def chat(req: ChatRequest):
     # El thread_id permite que el bot recuerde lo anterior
-    config = {"configurable": {"thread_id": req.thread_id}}
-    
-    input_data = {"messages": [HumanMessage(content=req.message)]}
+    # Pasamos el tarkov_token en el configurable para que las tools puedan acceder a él
+    config = {
+        "configurable": {
+            "thread_id": req.thread_id,
+            "tarkov_token": req.tarkov_token or "",
+        }
+    }
+
+    # Añadir el token al contexto del mensaje si está disponible
+    message_content = req.message
+    if req.tarkov_token:
+        message_content = f"[TARKOV_TOKEN:{req.tarkov_token}] {req.message}"
+
+    input_data = {"messages": [HumanMessage(content=message_content)]}
     
     final_response = ""
     reasoning = ""
@@ -193,3 +314,24 @@ async def chat(req: ChatRequest):
         "response": final_response,
         "reasoning": reasoning
     }
+
+
+@app.get("/tracker/progress")
+async def tracker_progress(token: str):
+    """
+    Proxy para la API de TarkovTracker. Obtiene el progreso del usuario.
+    El token es la API key de TarkovTracker del usuario.
+    """
+    import requests as req_lib
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    try:
+        r = req_lib.get("https://tarkovtracker.io/api/v2/progress", headers=headers, timeout=10)
+        if r.status_code == 401:
+            raise HTTPException(status_code=401, detail="Token de TarkovTracker inválido o expirado.")
+        r.raise_for_status()
+        return r.json()
+    except req_lib.exceptions.RequestException as e:
+        raise HTTPException(status_code=502, detail=f"Error al conectar con TarkovTracker: {str(e)}")

@@ -3,6 +3,7 @@ from langchain.tools import tool
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 import os
+from langchain_core.runnables import RunnableConfig
 
 # Setup for RAG
 CHROMA_DIR = "../Rag/chroma_db"
@@ -664,3 +665,27 @@ def get_map_info(query: str):
 
     # Si no hay coincidencias por nombre, devuelve todos
     return resultado if resultado else data
+
+@tool
+def get_user_progress(config: RunnableConfig):
+    """
+    Obtiene el progreso actual del usuario en Tarkov (nivel, misiones completadas, estado del hideout, etc.) 
+    desde TarkovTracker. Usa esta herramienta para saber qué misiones ha hecho el usuario o qué nivel tiene 
+    y así dar consejos personalizados sobre qué hacer a continuación.
+    """
+    token = config.get("configurable", {}).get("tarkov_token")
+    if not token:
+        return "No hay un token de TarkovTracker disponible. No puedo acceder al progreso del usuario."
+    
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+    try:
+        response = requests.get("https://tarkovtracker.io/api/v2/progress", headers=headers, timeout=10)
+        if response.status_code == 401:
+            return "El token de TarkovTracker es inválido o ha expirado."
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return f"Error al conectar con TarkovTracker: {str(e)}"
