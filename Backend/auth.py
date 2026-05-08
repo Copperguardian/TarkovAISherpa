@@ -9,11 +9,11 @@ import os
 load_dotenv()
 
 # Secret key for JWT
-SECRET_KEY = os.getenv("SECRET_KEY")
+SECRET_KEY = os.getenv("SECRET_KEY", "default-secret-key-change-it-in-env")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(
     os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 1440)
-)  # Default to 24 hours
+)
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 

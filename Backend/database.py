@@ -20,6 +20,12 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     
+    # New Fields
+    faction = Column(String) # Bear or Usec
+    level = Column(Integer) # 1-99
+    hideout_progress = Column(String) # Básico, Intermedio, Avanzado
+    playstyle = Column(String) # Agresivo pvp, Looter, etc.
+
     conversations = relationship("Conversation", back_populates="owner")
 
 class Conversation(Base):
@@ -29,6 +35,7 @@ class Conversation(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     title = Column(String)
     messages = Column(Text) # Store as JSON string
+    thread_id = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     owner = relationship("User", back_populates="conversations")

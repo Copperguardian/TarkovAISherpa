@@ -669,23 +669,17 @@ def get_map_info(query: str):
 @tool
 def get_user_progress(config: RunnableConfig):
     """
-    Obtiene el progreso actual del usuario en Tarkov (nivel, misiones completadas, estado del hideout, etc.) 
-    desde TarkovTracker. Usa esta herramienta para saber qué misiones ha hecho el usuario o qué nivel tiene 
-    y así dar consejos personalizados sobre qué hacer a continuación.
+    Obtiene el perfil y progreso actual del usuario en Tarkov (facción, nivel, progreso del hideout y estilo de juego)
+    desde la base de datos interna. SIEMPRE EJECUTA ESTO AL PRINCIPIO DE UNA CONVERSACIÓN. Usa esta herramienta para dar consejos personalizados basados en quién es el usuario.
+    Adapta tu respuesta a la información que tienes sobre el usuario. Por ejemplo, si el usuario es un nivel bajo con progreso limitado en el hideout, no le recomiendes tareas o armas que requieran un nivel alto o un hideout avanzado. Si el usuario es de una facción específica, ten en cuenta la historia y los valores de esa facción al recomendarle estrategias, misiones o equipo. Si el usuario tiene un estilo de juego más orientado al PvP, enfócate en consejos para enfrentamientos contra otros jugadores; si es más PvE, sugiere estrategias para sobrevivir contra Scavs y completar misiones.
     """
-    token = config.get("configurable", {}).get("tarkov_token")
-    if not token:
-        return "No hay un token de TarkovTracker disponible. No puedo acceder al progreso del usuario."
+    profile = config.get("configurable", {}).get("user_profile")
+    if not profile:
+        return "No hay información de perfil disponible para este usuario."
     
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json"
+    return {
+        "faction": profile.get("faction"),
+        "level": profile.get("level"),
+        "hideout_progress": profile.get("hideout_progress"),
+        "playstyle": profile.get("playstyle")
     }
-    try:
-        response = requests.get("https://tarkovtracker.io/api/v2/progress", headers=headers, timeout=10)
-        if response.status_code == 401:
-            return "El token de TarkovTracker es inválido o ha expirado."
-        response.raise_for_status()
-        return response.json()
-    except Exception as e:
-        return f"Error al conectar con TarkovTracker: {str(e)}"

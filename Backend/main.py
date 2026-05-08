@@ -140,7 +140,7 @@ Tienes acceso a las siguientes categorías de herramientas, cada una con funcion
 - **search_items**: Esta herramienta te permite buscar cualquier item/objeto de Tarkov (armaduras, mochilas, medicinas, llaves, cascos, gafas, contenedores, objetos de trueque, etc.) utilizando RAG. Si el usuario pregunta por un objeto que NO es un arma ni munición, usa esta herramienta. Puedes especificar opcionalmente el tipo de item (armor, meds, keys, barter, helmet, backpack, etc.) para obtener resultados más precisos y rápidos.
 - **search_hideout**: Esta herramienta te permite buscar información sobre las estaciones del hideout (Workbench, Medstation, Lavatory, Water Collector, Generator, Bitcoin Farm, etc.) utilizando RAG. Úsala cuando el usuario pregunte sobre requisitos de construcción, mejoras de estaciones, crafts disponibles, bonuses del hideout o cualquier cosa relacionada con la base del jugador. Da información sobre qué items se necesitan para construir/mejorar, qué traders hay que tener, qué se puede fabricar y cuánto tarda.
 - **get_map_info**: Esta herramienta te permite obtener información detallada sobre cualquier mapa de Tarkov. Úsala para dar consejos de navegación, puntos de extracción, zonas de alto riesgo, ubicaciones de loot y estrategias para sobrevivir en cada mapa. Si el usuario pregunta por un mapa específico, esta es tu herramienta de referencia para darle la información más precisa y actualizada.
-- **get_user_progress**: Esta herramienta te permite obtener el progreso real del usuario (nivel, misiones, hideout) desde TarkovTracker. Úsala al inicio o cuando el usuario pregunte "¿qué debería hacer ahora?" para dar consejos basados en su estado actual. Si ves un token en el contexto, tienes permiso para usarlo.
+- **get_user_progress**: Esta herramienta te permite obtener el progreso del usuario de la base de datos. Úsala Siempre al inicio de una conversación.
 ESTILO DE RESPUESTA (No sigas estas indicaciones al pie de la letra, adáptalas a tu personalidad de Sherpa):
 - Si el usuario pregunta por un objeto (MCP): "Esa chatarra que buscas... deja que consulte el mercado. (Usa la tool). Aquí tienes: cuesta {precio} rublos. No te gastes todo el jornal en eso si no tienes una armadura decente."
 - Si el usuario pide ayuda con una misión: "Esa zona es un nido de ratas. Escucha bien porque no lo repetiré dos veces..."
@@ -157,6 +157,10 @@ class ChatRequest(BaseModel):
 class UserRegister(BaseModel):
     email: EmailStr
     password: str
+    faction: str
+    level: int
+    hideout_progress: str
+    playstyle: str
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -207,21 +211,17 @@ app.add_middleware(
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=401,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
     try:
         payload = jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
-            raise credentials_exception
-    except JWTError:
-        raise credentials_exception
+            raise HTTPException(status_code=401, detail="Token no contiene el sujeto (sub)")
+    except JWTError as e:
+        raise HTTPException(status_code=401, detail=f"Error al decodificar token: {str(e)}")
+    
     user = db.query(User).filter(User.email == email).first()
     if user is None:
-        raise credentials_exception
+        raise HTTPException(status_code=401, detail=f"Usuario {email} no encontrado en la base de datos")
     return user
 
 # --- ENDPOINTS DE USUARIO ---
@@ -238,7 +238,14 @@ def register(user_data: UserRegister, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="El email ya está registrado")
     
     hashed_password = auth.get_password_hash(user_data.password)
-    new_user = User(email=user_data.email, hashed_password=hashed_password)
+    new_user = User(
+        email=user_data.email, 
+        hashed_password=hashed_password,
+        faction=user_data.faction,
+        level=user_data.level,
+        hideout_progress=user_data.hideout_progress,
+        playstyle=user_data.playstyle
+    )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -251,7 +258,17 @@ def login(user_data: UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Email o contraseña incorrectos")
     
     access_token = auth.create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer", "user_id": user.id}
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer", 
+        "user_id": user.id,
+        "profile": {
+            "faction": user.faction,
+            "level": user.level,
+            "hideout_progress": user.hideout_progress,
+            "playstyle": user.playstyle
+        }
+    }
 
 # --- ENDPOINTS DE CONVERSACIONES ---
 
@@ -260,7 +277,8 @@ def save_conversation(conv_data: ConversationSave, current_user: User = Depends(
     new_conv = Conversation(
         user_id=current_user.id,
         title=conv_data.title,
-        messages=json.dumps(conv_data.messages)
+        messages=json.dumps(conv_data.messages),
+        thread_id=conv_data.thread_id
     )
     db.add(new_conv)
     db.commit()
@@ -274,24 +292,34 @@ def get_conversations(current_user: User = Depends(get_current_user), db: Sessio
         "id": c.id,
         "title": c.title,
         "created_at": c.created_at,
-        "messages": json.loads(c.messages)
+        "messages": json.loads(c.messages),
+        "thread_id": c.thread_id
     } for c in conversations]
 
 @app.post("/chat")
-async def chat(req: ChatRequest):
-    # El thread_id permite que el bot recuerde lo anterior
-    # Pasamos el tarkov_token en el configurable para que las tools puedan acceder a él
+async def chat(req: ChatRequest, db: Session = Depends(get_db)):
+    # Obtenemos los datos del usuario de la DB si el user_id está presente
+    user_profile = {}
+    if req.user_id:
+        user = db.query(User).filter(User.id == req.user_id).first()
+        if user:
+            user_profile = {
+                "faction": user.faction,
+                "level": user.level,
+                "hideout_progress": user.hideout_progress,
+                "playstyle": user.playstyle
+            }
+
     config = {
         "configurable": {
             "thread_id": req.thread_id,
-            "tarkov_token": req.tarkov_token or "",
+            "user_profile": user_profile
         }
     }
 
-    # Añadir el token al contexto del mensaje si está disponible
     message_content = req.message
-    if req.tarkov_token:
-        message_content = f"[TARKOV_TOKEN:{req.tarkov_token}] {req.message}"
+    if user_profile:
+        message_content = f"[USER_PROFILE:{json.dumps(user_profile)}] {req.message}"
 
     input_data = {"messages": [HumanMessage(content=message_content)]}
     
@@ -316,8 +344,6 @@ async def chat(req: ChatRequest):
     }
 
 
-@app.get("/tracker/progress")
-async def tracker_progress(token: str):
     """
     Proxy para la API de TarkovTracker. Obtiene el progreso del usuario.
     El token es la API key de TarkovTracker del usuario.
