@@ -16,7 +16,8 @@ import {
   History,
   PlusCircle,
   Save,
-  Key
+  Key,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
@@ -45,6 +46,8 @@ function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [timer, setTimer] = useState(0);
+  const [timerInterval, setTimerInterval] = useState(null);
   const [threadId, setThreadId] = useState(Math.random().toString(36).substring(7));
   const [savedConversations, setSavedConversations] = useState([]);
   const [currentConvId, setCurrentConvId] = useState(null);
@@ -205,6 +208,13 @@ function App() {
     setMessages(prev => [...prev, userMsg]);
     setInput('');
     setIsLoading(true);
+    setTimer(0);
+    
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      setTimer((Date.now() - startTime) / 1000);
+    }, 100);
+    setTimerInterval(interval);
 
     try {
       const response = await axios.post(`${API_BASE_URL}/chat`, {
@@ -214,13 +224,19 @@ function App() {
         user_id: user?.id
       });
 
+      clearInterval(interval);
+      const endTime = Date.now();
+      const duration = (endTime - startTime) / 1000;
+
       const sherpaMsg = { 
         id: Date.now() + 1, 
         role: 'sherpa', 
-        content: response.data.response
+        content: response.data.response,
+        duration: duration.toFixed(2)
       };
       setMessages(prev => [...prev, sherpaMsg]);
     } catch (error) {
+      clearInterval(interval);
       setMessages(prev => [...prev, {
         id: Date.now() + 1,
         role: 'sherpa',
@@ -228,6 +244,7 @@ function App() {
       }]);
     } finally {
       setIsLoading(false);
+      setTimerInterval(null);
     }
   };
 
@@ -278,12 +295,15 @@ function App() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-8 text-center">
             <button 
-              onClick={() => setAuthView(authView === 'login' ? 'register' : 'login')}
-              className="text-[10px] uppercase tracking-widest text-secondary hover:text-accent-color"
+              onClick={() => {
+                setAuthView(authView === 'login' ? 'register' : 'login');
+                setAuthError('');
+              }}
+              className="btn-link-industrial"
             >
-              {authView === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
+              {authView === 'login' ? '[ RECLUTAR NUEVO OPERADOR ]' : '[ REGRESAR AL ACCESO ]'}
             </button>
           </div>
         </motion.div>
@@ -319,9 +339,10 @@ function App() {
                 <button 
                   key={conv.id}
                   onClick={() => loadConversation(conv)}
-                  className={`w-full text-left p-2 text-[10px] truncate border border-transparent hover:border-border-color rounded ${currentConvId === conv.id ? 'bg-accent-green/10 border-accent-green/30 text-accent-green' : 'text-secondary'}`}
+                  className={`conv-item ${currentConvId === conv.id ? 'active' : ''}`}
                 >
-                  {conv.title}
+                  <FileText size={12} className="conv-item-icon" />
+                  <span className="truncate">{conv.title}</span>
                 </button>
               ))}
             </div>
@@ -359,8 +380,8 @@ function App() {
         </div>
 
         <div className="sidebar-footer">
-          <button onClick={handleAppLogout} className="flex items-center gap-2 text-[10px] text-secondary hover:text-danger transition-colors uppercase tracking-widest">
-            <LogOut size={14} /> Cerrar Búnker
+          <button onClick={handleAppLogout} className="btn-danger">
+            <LogOut size={14} /> Finalizar Despliegue
           </button>
         </div>
       </aside>
@@ -387,6 +408,11 @@ function App() {
                 <div className="message-content">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                 </div>
+                {msg.role === 'sherpa' && msg.duration && (
+                  <div className="response-timer">
+                    <Activity size={10} /> LATENCIA: {msg.duration}s
+                  </div>
+                )}
               </motion.div>
             ))}
           </AnimatePresence>
@@ -398,6 +424,9 @@ function App() {
                 <div className="dot" style={{ animationDelay: '0.2s' }}></div>
                 <div className="dot" style={{ animationDelay: '0.4s' }}></div>
               </div>
+              <div className="response-timer mt-2">
+                <Loader2 size={10} className="animate-spin" /> PROCESANDO: {timer.toFixed(1)}s
+              </div>
             </div>
           )}
           <div ref={chatEndRef} />
@@ -407,7 +436,7 @@ function App() {
           {messages.length > 0 && !currentConvId && (
             <button 
               onClick={saveCurrentConversation}
-              className="absolute -top-12 right-8 p-2 bg-accent-color text-black rounded-full shadow-lg hover:scale-110 transition-transform"
+              className="absolute -top-14 right-8 btn-primary !w-auto !rounded-full !p-3"
               title="Guardar Conversación"
             >
               <Save size={18} />
