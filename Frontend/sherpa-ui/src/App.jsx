@@ -185,8 +185,8 @@ function App() {
 
   const startNewChat = () => {
     setMessages([]);
-    setThreadId(Math.random().toString(36).substring(7));
     setCurrentConvId(null);
+    setThreadId(Math.random().toString(36).substring(7));
   };
 
   // --- CHAT FUNCTIONS ---
@@ -436,7 +436,6 @@ function App() {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="main-content">
         <div className="chat-window">
           {messages.length === 0 && (

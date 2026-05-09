@@ -41,6 +41,7 @@ from contextlib import asynccontextmanager
 import json
 from textwrap import indent
 import os
+from pathlib import Path 
 
 # Para cargar la api key de Nvidia 
 from dotenv import load_dotenv
@@ -66,6 +67,13 @@ print(modelo)  # Verifica que el modelo se ha cargado correctamente
 
 # OBTENCIÓN DE HERRAMIENTAS CUSTOM PARA TARKOV (FUERA DEL MCP)
 from tools import get_ammo, get_map_info, get_weapons_by_caliber, get_weapons_by_name, get_weapons_by_category, get_multiAmmo, search_tasks, get_multi_weapons, search_items, search_hideout, get_user_progress
+ruta_mcp = Path(
+    r"C:\Users\User\Desktop\COSAS_INTELIGENCIA_ARTIFICAL"
+    r"\Programacion_Inteligencia_Artificial"
+    r"\Agentes\Langchain\Proyecto\TarkovAISherpa\Backend\tarkov-mcp"
+)
+
+str(ruta_mcp)
 # OBTENCIÓN DE HERRAMIENTAS DESDE EL MCP
 async def get_tarkov_mcp():
 
