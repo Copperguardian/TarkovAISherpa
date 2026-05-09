@@ -20,8 +20,6 @@ from langchain.messages import HumanMessage
 
 # Carga de variables de entorno
 load_dotenv()
-nvidia_api_key = os.getenv("NVIDIA_API_KEY")
-print("NVIDIA API Key:", nvidia_api_key)
 
 # --- GLOBAL AGENT ---
 agente = None

@@ -1,22 +1,34 @@
+import os
+
+from dotenv import load_dotenv
 from langchain_ollama import ChatOllama
 from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from pathlib import Path
 from tools import (
-    get_ammo, get_map_info, get_weapons_by_caliber, get_weapons_by_name, 
+    get_ammo, get_armor_materials, get_map_info, get_weapons_by_caliber, get_weapons_by_name, 
     get_weapons_by_category, get_multiAmmo, search_tasks, get_multi_weapons, 
     search_items, search_hideout, get_user_progress
 )
 from prompts import PROMPT_SISTEMA
 import json
 from textwrap import indent
+import os
+
+load_dotenv()
+nvidia_api_key = os.getenv("NVIDIA_API_KEY")
 
 modelo = ChatOllama(
     model="gemma4:26b", 
     base_url="http://192.168.1.178:11434/",
     num_ctx=16384
 )
+
+# modelo = ChatNvidia(
+#     model="gemma-2b-instruct",
+#     nvidia_api_key=nvidia_api_key
+# )
 
 ruta_mcp = Path(
     r"C:\Users\User\Desktop\COSAS_INTELIGENCIA_ARTIFICAL"
@@ -69,7 +81,7 @@ async def init_agent():
         get_ammo, get_weapons_by_caliber, get_weapons_by_name, 
         get_weapons_by_category, get_multiAmmo, search_tasks, 
         get_multi_weapons, search_items, search_hideout, get_map_info, 
-        get_user_progress
+        get_user_progress, get_armor_materials
     ]
     for tool in herramientas:
         pretty_tool(tool)
