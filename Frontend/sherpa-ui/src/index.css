@@ -180,6 +180,30 @@ body {
   border-color: var(--accent-color);
 }
 
+.select-industrial-sm {
+  width: 100%;
+  background: #000;
+  border: 1px solid var(--border-color);
+  padding: 0.4rem 0.5rem;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: bold;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239a8866' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.4rem center;
+  transition: all 0.3s;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.select-industrial-sm:focus {
+  border-color: var(--accent-color);
+}
+
 /* Button System */
 .btn-primary {
   width: 100%;
@@ -243,6 +267,27 @@ body {
   background: rgba(139, 0, 0, 0.3);
   border-color: #ff4444;
   color: #fff;
+}
+
+.btn-industrial-sm {
+  background: #121212;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.btn-industrial-sm:hover {
+  background: rgba(154, 136, 102, 0.1);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 
 .btn-link-industrial {

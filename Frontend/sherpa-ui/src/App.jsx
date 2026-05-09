@@ -138,6 +138,19 @@ function App() {
     }
   };
 
+  const updateProfile = async (updates) => {
+    try {
+      const response = await axios.put(`${API_BASE_URL}/profile`, updates, {
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+      const updatedUser = { ...user, profile: response.data.profile };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+    }
+  };
+
   const saveCurrentConversation = async () => {
     if (messages.length === 0 || isSaving) return;
     setIsSaving(true);
@@ -345,10 +358,14 @@ function App() {
               <div className="stat-card">
                 <div className="flex justify-between items-center mb-2">
                   <span className="stat-label flex items-center gap-1"><Trophy size={10} /> Nivel</span>
-                  <span className="stat-value text-xs">{user.profile?.level}</span>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => updateProfile({ level: Math.max(1, (user.profile?.level || 1) - 1) })} className="btn-industrial-sm">-</button>
+                    <span className="stat-value text-xs w-6 text-center">{user.profile?.level}</span>
+                    <button onClick={() => updateProfile({ level: Math.min(99, (user.profile?.level || 1) + 1) })} className="btn-industrial-sm">+</button>
+                  </div>
                 </div>
                 <div className="level-bar">
-                  <div className="level-progress" style={{ width: `${(user.profile?.level / 79) * 100}%` }}></div>
+                  <div className="level-progress" style={{ width: `${(user.profile?.level / 99) * 100}%` }}></div>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -358,12 +375,31 @@ function App() {
                 </div>
                 <div className="p-2 bg-black/40 border border-border-color rounded">
                   <div className="stat-label mb-1">Playstyle</div>
-                  <div className="text-[10px] font-bold text-accent-color truncate">{user.profile?.playstyle}</div>
+                  <select 
+                    value={user.profile?.playstyle} 
+                    onChange={(e) => updateProfile({ playstyle: e.target.value })}
+                    className="select-industrial-sm !text-accent-color !border-transparent hover:!border-border-color"
+                  >
+                    <option value="Agresivo pvp">Agresivo PvP</option>
+                    <option value="Looter">Looter</option>
+                    <option value="Orientado a quests">Quests</option>
+                    <option value="Rateador">Rateador</option>
+                    <option value="Pasivo pve">Pasivo PvE</option>
+                    <option value="Dinamico">Dinámico</option>
+                  </select>
                 </div>
               </div>
               <div className="p-2 bg-black/40 border border-border-color rounded">
                 <div className="stat-label mb-1">Hideout</div>
-                <div className="text-[10px] font-bold text-accent-green">{user.profile?.hideout_progress}</div>
+                <select 
+                  value={user.profile?.hideout_progress} 
+                  onChange={(e) => updateProfile({ hideout_progress: e.target.value })}
+                  className="select-industrial-sm !text-accent-green !border-transparent hover:!border-border-color"
+                >
+                  <option value="Básico">Básico</option>
+                  <option value="Intermedio">Intermedio</option>
+                  <option value="Avanzado">Avanzado</option>
+                </select>
               </div>
             </div>
           </div>
