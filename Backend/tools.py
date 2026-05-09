@@ -508,6 +508,9 @@ def search_tasks(query: str):
   No des más información de la que necesita el usuario para identificar la tarea, pero asegúrate de incluir detalles relevantes como el nombre de la tarea, el trader que la ofrece, los objetivos principales y las recompensas, para que el usuario pueda reconocerla fácilmente.
   Si no se encuentra ninguna tarea que coincida con la consulta, devuelve una lista vacía.
   """
+  print("----------------------------------------------------------------------------------------")
+  print("Se ha ejecutado search_tasks")
+  print("Query: ", query)
   try:
       results = vectorstore.similarity_search(query, k=5)
       return [doc.page_content for doc in results]
@@ -541,6 +544,9 @@ def search_items(query: str, item_type: str = None):
   Para preguntas sobre munición usa get_ammo o get_multiAmmo.
   Para preguntas sobre tareas/misiones usa search_tasks.
   """
+  print("----------------------------------------------------------------------------------------")
+  print("Se ha ejecutado search_items")
+  print("Query: ", query, "Item type: ", item_type)
   try:
       # Si se especifica un tipo válido, buscar solo en esa colección
       if item_type and item_type in ITEM_TYPES:
@@ -670,8 +676,9 @@ def get_map_info(query: str):
 def get_user_progress(config: RunnableConfig):
     """
     Obtiene el perfil y progreso actual del usuario en Tarkov (facción, nivel, progreso del hideout y estilo de juego)
-    desde la base de datos interna. SIEMPRE EJECUTA ESTO AL PRINCIPIO DE UNA CONVERSACIÓN. Usa esta herramienta para dar consejos personalizados basados en quién es el usuario.
+    desde la base de datos interna. Usa esta herramienta para dar consejos personalizados basados en quién es el usuario.
     Adapta tu respuesta a la información que tienes sobre el usuario. Por ejemplo, si el usuario es un nivel bajo con progreso limitado en el hideout, no le recomiendes tareas o armas que requieran un nivel alto o un hideout avanzado. Si el usuario es de una facción específica, ten en cuenta la historia y los valores de esa facción al recomendarle estrategias, misiones o equipo. Si el usuario tiene un estilo de juego más orientado al PvP, enfócate en consejos para enfrentamientos contra otros jugadores; si es más PvE, sugiere estrategias para sobrevivir contra Scavs y completar misiones.
+    No uses esta herramienta sola cuando el usuario te pregunte por alguna otra cosa, como armas, tareas o mapas. Usa esta herramienta para obtener información sobre el usuario y luego adapta tus respuestas a esa información.
     """
     profile = config.get("configurable", {}).get("user_profile")
     if not profile:
