@@ -59,7 +59,7 @@ def get_multiAmmo(calibers: list = None):
     Si el usuario menciona calibre 762 sin especificar, sal de la herramienta y pregúntale si se refiere a 762x39, 762x51 o 762x54, ya que son los calibres de 7.62 más comunes en el juego.
     """
     url = "https://api.tarkov.dev/graphql"
-
+    print("Se ha ejecutado get_multiAmmo")
     new_query = """
     {
         ammo {
@@ -206,7 +206,7 @@ def get_weapons_by_caliber(caliber: str):
     """
 
     url = "https://api.tarkov.dev/graphql"
-    
+    print("Se ha ejecutado get_weapons_by_caliber")
     print(caliber)
     
     query = """
@@ -323,7 +323,7 @@ def get_multi_weapons(names: list = None):
         names (list): Lista de strings con los nombres a buscar, ej: ["ak", "m4", "p90"]
     """
     url = "https://api.tarkov.dev/graphql"
-    
+    print("Se ha ejecutado get_multi_weapons")
     query = """
     {
       items(type: gun) {
@@ -396,7 +396,7 @@ def get_weapons_by_category(category: str):
     - Grenade launcher (se refiere a lanzagranadas en español)
     Si no hay coincidencias o no se especifica categoría, devuelve la lista completa.
     """
-
+    print("Se ha ejecutado get_weapons_by_category")
     url = "https://api.tarkov.dev/graphql"
     query = """
     {
@@ -455,11 +455,15 @@ def get_weapons_by_category(category: str):
 @tool
 def get_armor_materials():
     """
-    Consulta la API de Tarkov para obtener todos los materiales de armaduras disponibles en el juego. Esta herramienta es útil para que los jugadores puedan identificar qué materiales se utilizan en la fabricación de armaduras y así tomar decisiones informadas sobre qué armaduras comprar o fabricar según sus necesidades y presupuesto.
+    Consulta la API de Tarkov para obtener todos los materiales de armaduras disponibles en el juego. Esta herramienta es útil para que los jugadores puedan identificar las propiedades de los materiales y así tomar decisiones informadas sobre qué armaduras comprar según sus necesidades y presupuesto.
      Si el usuario menciona un material específico, hablale de ese material en particular.
+     Ten en cuenta que materiales como la cerámica o el acero pueden ser peores en términos de protección que materiales más avanzados como el titanio o el polimero, pero suelen ser más baratos. Por otro lado, materiales como el acero pueden ser más pesados y afectar la movilidad del jugador, mientras que materiales como el polimero son más ligeros. Si el usuario pregunta por un material específico, enfócate en las ventajas y desventajas de ese material en particular para ayudarle a decidir si es adecuado para su estilo de juego y presupuesto.
+     Materiales como el cristal o aramida son bastante específicos para piezas de armadura en particular como visores para el cristal o armadruas básicas para la aramida así que ten en cuenta que no suelen poder parar calibres altos.
+     El mejor material en general suele ser el UHMWPE, que es un tipo de polimero de ultra alta masa molecular, ya que tiene una excelente relación protección-peso y puede ser más resistente que el acero o la cerámica en algunos casos. Sin embargo, también es importante destacar que estas placas pueden ser muy caras o difíciles de conseguir, por lo que no siempre son la mejor opción para todos los jugadores. El titanio también es un material de alta calidad que ofrece una buena protección y es más ligero que el acero, pero suele ser más caro. En general, la elección del material dependerá de las necesidades específicas del jugador, su estilo de juego y su presupuesto.
+     
     """
     url = "https://api.tarkov.dev/graphql"
-    
+    print("Se ha ejecutado get_armor_materials")
     query = """
     query MyQuery {
       armorMaterials {
@@ -680,6 +684,8 @@ def get_user_progress(config: RunnableConfig):
     Adapta tu respuesta a la información que tienes sobre el usuario. Por ejemplo, si el usuario es un nivel bajo con progreso limitado en el hideout, no le recomiendes tareas o armas que requieran un nivel alto o un hideout avanzado. Si el usuario es de una facción específica, ten en cuenta la historia y los valores de esa facción al recomendarle estrategias, misiones o equipo. Si el usuario tiene un estilo de juego más orientado al PvP, enfócate en consejos para enfrentamientos contra otros jugadores; si es más PvE, sugiere estrategias para sobrevivir contra Scavs y completar misiones.
     No uses esta herramienta sola cuando el usuario te pregunte por alguna otra cosa, como armas, tareas o mapas. Usa esta herramienta para obtener información sobre el usuario y luego adapta tus respuestas a esa información.
     """
+    print("----------------------------------------------------------------------------------------")
+    print("Se ha ejecutado get_user_progress")
     profile = config.get("configurable", {}).get("user_profile")
     if not profile:
         return "No hay información de perfil disponible para este usuario."
