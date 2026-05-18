@@ -21,7 +21,7 @@ nvidia_api_key = os.getenv("NVIDIA_API_KEY")
 
 modelo = ChatOllama(
     model="gemma4:26b", 
-    base_url="http://192.168.1.178:11434/",
+    base_url="http://192.168.117.48:11434/",
     num_ctx=16384
 )
 
